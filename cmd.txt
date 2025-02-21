@@ -1,1 +1,70 @@
-CUDA_VISIBLE_DEVICES=1 python infer_cli.py     --model ../ckpts/checkpoint.pth     --llama_dir ../ckpts/LLaMA     --knn_dir ../ckpts     --audio ../test.mp3   --prompt "Out of these tags, which would you choose for this song? You can optionally choose mulitple tags. Only return a list of the tags you selected, nothing else. genre---alternative genre---ambient genre---atmospheric genre---chillout genre---classical genre---dance genre---downtempo genre---easylistening genre---electronic genre---experimental genre---folk genre---funk genre---hiphop genre---house genre---indie genre---instrumentalpop genre---jazz genre---lounge genre---metal genre---newage genre---orchestral genre---pop genre---popfol genre---poprock genre---reggae genre---rock genre---soundtrack genre---techno genre---trance genre---triphop genre---world instrument---acousticguitar instrument---bass instrument---computer instrument---drummachine instrument---drums instrument---electricguitar instrument---electricpiano instrument---guitar instrument---keyboard instrument---piano instrument---strings instrument---synthesizer instrument---violin instrument---voice mood/theme---emotional mood/theme---energetic mood/theme---film mood/theme---happy mood/theme---relaxing"     --temperature 0.5     --max_gen_len 2048
+CUDA_VISIBLE_DEVICES="-1" python infer_cli.py     --model ../ckpts/checkpoint.pth     --llama_dir ../ckpts/LLaMA     --knn_dir ../ckpts     --audio ../test.mp3   --prompt "Out of these tags, which would you choose for this song? You can optionally choose mulitple tags. Only return a list of the tags you selected, nothing else. genre---alternative genre---ambient genre---atmospheric genre---chillout genre---classical genre---dance genre---downtempo genre---easylistening genre---electronic genre---experimental genre---folk genre---funk genre---hiphop genre---house genre---indie genre---instrumentalpop genre---jazz genre---lounge genre---metal genre---newage genre---orchestral genre---pop genre---popfol genre---poprock genre---reggae genre---rock genre---soundtrack genre---techno genre---trance genre---triphop genre---world instrument---acousticguitar instrument---bass instrument---computer instrument---drummachine instrument---drums instrument---electricguitar instrument---electricpiano instrument---guitar instrument---keyboard instrument---piano instrument---strings instrument---synthesizer instrument---violin instrument---voice mood/theme---emotional mood/theme---energetic mood/theme---film mood/theme---happy mood/theme---relaxing"     --temperature 0.5     --max_gen_len 2048
+
+
+
+
+CUDA_VISIBLE_DEVICES="-1" python infer_cli.py --model ../ckpts/checkpoint.pth --llama_dir ../ckpts/LLaMA --knn_dir ../ckpts --audio ../test.mp3 --prompt "You are a professional music tagger. After analyzing this song, select the most appropriate tags from the list below. Your response must ONLY contain the selected tags, one per line with a hyphen (-), exactly like the examples shown.
+
+Available tags are grouped into categories:
+
+GENRES:
+alternative, ambient, atmospheric, chillout, classical, dance, downtempo, easylistening, electronic, experimental, folk, funk, hiphop, house, indie, instrumentalpop, jazz, lounge, metal, newage, orchestral, pop, popfolk, poprock, reggae, rock, soundtrack, techno, trance, triphop, world
+
+INSTRUMENTS:
+acousticguitar, bass, computer, drummachine, drums, electricguitar, electricpiano, guitar, keyboard, piano, strings, synthesizer, violin, voice
+
+MOOD/THEME:
+emotional, energetic, film, happy, relaxing
+
+Example response 1:
+- electronic
+- ambient
+- synthesizer
+- relaxing
+
+Example response 2:
+- rock
+- electricguitar
+- drums
+- energetic
+
+Example response 3:
+- classical
+- strings
+- piano
+- emotional
+- film
+
+Rules:
+1. ONLY output tags from the provided list
+2. Use exactly this format: '- tagname'
+3. Each tag must be on a new line
+4. Select 2-5 tags total
+5. Include NO other text, explanations, or commentary
+6. You may mix tags from different categories
+7. Choose tags that best represent the primary elements of the song
+
+Now analyze the song and list the most appropriate tags:" --temperature 0.5 --max_gen_len 2048
+
+
+
+
+CUDA_VISIBLE_DEVICES="-1" python infer_cli.py --model ../ckpts/checkpoint.pth --llama_dir ../ckpts/LLaMA --knn_dir ../ckpts --audio ../test.mp3 --prompt "You are a professional music tagger. After analyzing this music track, select the most appropriate tags from the list below. Your response must ONLY contain the selected tags from this list, one per line with a hyphen (-), exactly like the examples shown.
+
+Available tags:
+genre---alternative genre---ambient genre---atmospheric genre---chillout genre---classical genre---dance genre---downtempo genre---easylistening genre---electronic genre---experimental genre---folk genre---funk genre---hiphop genre---house genre---indie genre---instrumentalpop genre---jazz genre---lounge genre---metal genre---newage genre---orchestral genre---pop genre---popfol genre---poprock genre---reggae genre---rock genre---soundtrack genre---techno genre---trance genre---triphop genre---world instrument---acousticguitar instrument---bass instrument---computer instrument---drummachine instrument---drums instrument---electricguitar instrument---electricpiano instrument---guitar instrument---keyboard instrument---piano instrument---strings instrument---synthesizer instrument---violin instrument---voice mood/theme---emotional mood/theme---energetic mood/theme---film mood/theme---happy mood/theme---relaxing
+
+Example response:
+- genre---electronic
+- genre---ambient
+- instrument---synthesizer
+- mood/theme---relaxing
+
+Rules:
+1. ONLY output tags from the provided list, exactly as written above
+2. Use exactly this format: '- tag'
+3. Each tag must be on a new line
+4. You can select as many tags as you find appropriate for the music track
+5. Include NO other text, explanations, or commentary
+
+Now analyze the music track and list the most appropriate tags:" --temperature 0.5 --max_gen_len 2048

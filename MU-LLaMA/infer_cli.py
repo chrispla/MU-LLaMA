@@ -81,7 +81,7 @@ def main():
 
     # Generate response
     print("Generating response...")
-    with torch.amp.autocast():
+    with torch.amp.autocast("cpu"):
         results = model.generate(
             inputs,
             prompts,

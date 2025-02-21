@@ -394,7 +394,7 @@ class LLaMA_adapter(nn.Module):
         params = self.llama.params
         assert bsz <= params.max_batch_size, (bsz, params.max_batch_size)
 
-        with torch.amp.autocast():
+        with torch.amp.autocast(device_type=self.device):
             audio_query = self.forward_audio(inputs, cache_size, cache_t, cache_weight)
 
         if isinstance(prompts[0], str):
@@ -413,7 +413,7 @@ class LLaMA_adapter(nn.Module):
         start_pos = min_prompt_size
         prev_pos = 0
         for cur_pos in range(start_pos, total_len):
-            with torch.amp.autocast():
+            with torch.amp.autocast(device_type=self.device):
                 logits = self.forward_inference(
                     audio_query, tokens[:, prev_pos:cur_pos], prev_pos
                 )
