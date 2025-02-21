@@ -530,5 +530,5 @@ def imagebind_huge(pretrained=False):
                 "./ckpts/imagebind_w3D.pth",
                 progress=True,
             )
-        model.load_state_dict(torch.load("./ckpts/imagebind_w3D.pth"))
+        model.load_state_dict(torch.load("./ckpts/imagebind_w3D.pth", weights_only=False))
     return model

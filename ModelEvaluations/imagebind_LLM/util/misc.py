@@ -321,7 +321,7 @@ def load_model(model_without_ddp, path):
         checkpoint = torch.hub.load_state_dict_from_url(
             path, map_location='cpu', check_hash=True)
     else:
-        checkpoint = torch.load(path, map_location='cpu')
+        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
     new_checkpoint = {}
     #print(checkpoint.keys())
     for key, value in checkpoint['model'].items():

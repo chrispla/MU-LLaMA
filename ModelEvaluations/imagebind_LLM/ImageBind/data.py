@@ -172,7 +172,7 @@ def load_and_transform_point_cloud_data(point_paths, device):
             pcd = o3d.io.read_point_cloud(file_name)
             point = numpy.asarray(pcd.points)
         elif '.pt' in file_name:
-            point = torch.load(file_name).numpy()
+            point = torch.load(file_name, weights_only=True).numpy()
         elif '.npy' in file_name:
             point = numpy.load(file_name)
         elif '.obj' in file_name:

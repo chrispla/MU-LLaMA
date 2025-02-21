@@ -1,64 +1,91 @@
-import torch.cuda
 import sys
 
-sys.path.append('../MU-LLaMA')
+import torch.cuda
 
-import llama
-from util.misc import *
-from data.utils import load_and_transform_audio_data
+sys.path.append("../MU-LLaMA")
+
+import argparse
 import json
 import os
-import argparse
 from collections import defaultdict
+
+import llama
+from data.utils import load_and_transform_audio_data
+from util.misc import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--model", default="../MU-LLaMA/ckpts/music_finetune/checkpoint.pth", type=str,
+    "--model",
+    default="../MU-LLaMA/ckpts/music_finetune/checkpoint.pth",
+    type=str,
     help="Name of or path to the trained checkpoint",
 )
 parser.add_argument(
-    "--knn", default="../MU-LLaMA/ckpts", type=str,
+    "--knn",
+    default="../MU-LLaMA/ckpts",
+    type=str,
     help="Name of or path to the directory with knn checkpoint",
 )
 parser.add_argument(
-    "--llama_type", default="7B", type=str,
+    "--llama_type",
+    default="7B",
+    type=str,
     help="Type of llama original weight",
 )
 parser.add_argument(
-    "--llama_dir", default="../MU-LLaMA/ckpts/LLaMA-2", type=str,
+    "--llama_dir",
+    default="../MU-LLaMA/ckpts/LLaMA-2",
+    type=str,
     help="Path to LLaMA pretrained checkpoint",
 )
 parser.add_argument(
-    "--mert_path", default="m-a-p/MERT-v1-330M", type=str,
+    "--mert_path",
+    default="m-a-p/MERT-v1-330M",
+    type=str,
     help="Path to MERT pretrained checkpoint",
 )
 args = parser.parse_args()
 
-model = llama.load(args.model, args.llama_dir, mert_path=args.mert_path, knn=True,
-                   knn_dir=args.knn, llama_type=args.llama_type)
+model = llama.load(
+    args.model,
+    args.llama_dir,
+    mert_path=args.mert_path,
+    knn=True,
+    knn_dir=args.knn,
+    llama_type=args.llama_type,
+)
 model.eval()
 
 
 def multimodal_generate(
-        audio_path,
-        audio_weight,
-        prompt,
-        cache_size,
-        cache_t,
-        cache_weight,
-        max_gen_len,
-        gen_t, top_p
+    audio_path,
+    audio_weight,
+    prompt,
+    cache_size,
+    cache_t,
+    cache_weight,
+    max_gen_len,
+    gen_t,
+    top_p,
 ):
     inputs = {}
     audio = load_and_transform_audio_data([audio_path])
-    inputs['Audio'] = [audio, audio_weight]
+    inputs["Audio"] = [audio, audio_weight]
     image_prompt = prompt
     text_output = None
     prompts = [llama.format_prompt(prompt)]
     prompts = [model.tokenizer.encode(x, bos=True, eos=False) for x in prompts]
-    with torch.cuda.amp.autocast():
-        results = model.generate(inputs, prompts, max_gen_len=max_gen_len, temperature=gen_t, top_p=top_p,
-                                 cache_size=cache_size, cache_t=cache_t, cache_weight=cache_weight)
+    with torch.amp.autocast():
+        results = model.generate(
+            inputs,
+            prompts,
+            max_gen_len=max_gen_len,
+            temperature=gen_t,
+            top_p=top_p,
+            cache_size=cache_size,
+            cache_t=cache_t,
+            cache_weight=cache_weight,
+        )
     text_output = results[0].strip()
     return text_output
 
@@ -98,7 +125,9 @@ mtg = json.load(open("../MusicQA/MusicQA/EvalMusicQA.json"))
 total = 0
 
 for row in mtg:
-    duration = get_duration(os.path.join("../MusicQA/MusicQA/audios", row["audio_name"]))
+    duration = get_duration(
+        os.path.join("../MusicQA/MusicQA/audios", row["audio_name"])
+    )
     total += get_split_count(duration) // 2
 
 from tqdm import tqdm
@@ -111,7 +140,7 @@ if not os.path.exists("./results"):
     os.makedirs("./results")
 
 if os.path.exists(out_filename):
-    mullama_data = defaultdict(lambda: {}, json.load(open(out_filename, 'r')))
+    mullama_data = defaultdict(lambda: {}, json.load(open(out_filename, "r")))
     fileset = set(mullama_data.keys())
 
 print(f"Already Completed: {len(fileset)}")
@@ -123,7 +152,9 @@ pbar = tqdm(total=total)
 for row in mtg:
     if row["audio_name"] in fileset:
         continue
-    audio = AudioSegment.from_wav(os.path.join("../MusicQA/MusicQA/audios", row["audio_name"]))
+    audio = AudioSegment.from_wav(
+        os.path.join("../MusicQA/MusicQA/audios", row["audio_name"])
+    )
     audio_splits = split_audio(audio, 1)
     q = row["conversation"][0]["value"]
     result = []
@@ -134,8 +165,8 @@ for row in mtg:
     mullama_data[row["audio_name"]][q] = " ".join(result)
     count += 1
     if count % 10 == 0:
-        with open(out_filename, 'w') as f:
+        with open(out_filename, "w") as f:
             json.dump(mullama_data, f)
 
-with open(out_filename, 'w') as f:
+with open(out_filename, "w") as f:
     json.dump(mullama_data, f)

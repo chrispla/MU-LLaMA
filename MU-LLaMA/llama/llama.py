@@ -1,13 +1,13 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # This software may be used and distributed according to the terms of the GNU General Public License version 3.
-import torch
-from torch import nn
-from torch.nn import Embedding, Linear
-import torch.nn.functional as F
-
 import math
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
+
+import torch
+import torch.nn.functional as F
+from torch import nn
+from torch.nn import Embedding, Linear
 
 
 @dataclass
@@ -93,26 +93,10 @@ class Attention(nn.Module):
         self.n_kv_heads = args.n_kv_heads
         self.head_dim = args.dim // args.n_heads
 
-        self.wq = Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=args.w_bias
-        )
-        self.wk = Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False
-        )
-        self.wv = Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False
-        )
-        self.wo = Linear(
-            args.n_heads * self.head_dim,
-            args.dim,
-            bias=args.w_bias
-        )
+        self.wq = Linear(args.dim, args.n_heads * self.head_dim, bias=args.w_bias)
+        self.wk = Linear(args.dim, args.n_heads * self.head_dim, bias=False)
+        self.wv = Linear(args.dim, args.n_heads * self.head_dim, bias=False)
+        self.wo = Linear(args.n_heads * self.head_dim, args.dim, bias=args.w_bias)
 
         if args.w_bias:
             nn.init.constant_(self.wq.bias.data, 0)
@@ -146,16 +130,35 @@ class Attention(nn.Module):
             self.cache_k = None
             self.cache_v = None
         else:
+            device = next(self.parameters()).device
             self.cache_k = torch.zeros(
-                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
-            ).cuda()
+                (
+                    self.args.max_batch_size,
+                    self.args.max_seq_len,
+                    self.n_local_heads,
+                    self.head_dim,
+                ),
+                device=device,
+            )
             self.cache_v = torch.zeros(
-                (self.args.max_batch_size, self.args.max_seq_len, self.n_local_heads, self.head_dim)
-            ).cuda()
+                (
+                    self.args.max_batch_size,
+                    self.args.max_seq_len,
+                    self.n_local_heads,
+                    self.head_dim,
+                ),
+                device=device,
+            )
         return super().train(mode)
 
-    def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor],
-                adapter=None):
+    def forward(
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        freqs_cis: torch.Tensor,
+        mask: Optional[torch.Tensor],
+        adapter=None,
+    ):
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
         if self.w_lora:
@@ -173,8 +176,8 @@ class Attention(nn.Module):
             self.cache_k = self.cache_k.to(xq)
             self.cache_v = self.cache_v.to(xq)
 
-            self.cache_k[:bsz, start_pos: start_pos + seqlen] = xk
-            self.cache_v[:bsz, start_pos: start_pos + seqlen] = xv
+            self.cache_k[:bsz, start_pos : start_pos + seqlen] = xk
+            self.cache_v[:bsz, start_pos : start_pos + seqlen] = xv
 
             keys = self.cache_k[:bsz, : start_pos + seqlen]
             values = self.cache_v[:bsz, : start_pos + seqlen]
@@ -185,11 +188,15 @@ class Attention(nn.Module):
 
         if adapter is not None:
             adapter_len = adapter.shape[1]
-            adapter_v = self.wv(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+            adapter_v = self.wv(adapter).view(
+                bsz, adapter_len, self.n_local_heads, self.head_dim
+            )
             adapter_v = adapter_v.transpose(1, 2)
 
             if adapter_len > 1:
-                adapter_k = self.wk(adapter).view(bsz, adapter_len, self.n_local_heads, self.head_dim)
+                adapter_k = self.wk(adapter).view(
+                    bsz, adapter_len, self.n_local_heads, self.head_dim
+                )
                 adapter_k = adapter_k.transpose(1, 2)
 
         xq = xq.transpose(1, 2)
@@ -205,15 +212,17 @@ class Attention(nn.Module):
 
         if adapter is not None:
             if adapter_len > 1:
-                adapter_scores = torch.matmul(xq, adapter_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                adapter_scores = self.gate.tanh() * F.softmax(adapter_scores.float(), dim=-1).type_as(xq)
+                adapter_scores = torch.matmul(
+                    xq, adapter_k.transpose(2, 3)
+                ) / math.sqrt(self.head_dim)
+                adapter_scores = self.gate.tanh() * F.softmax(
+                    adapter_scores.float(), dim=-1
+                ).type_as(xq)
                 output = output + torch.matmul(adapter_scores, adapter_v)
             else:
                 output = output + self.gate.tanh() * adapter_v
 
-        output = output.transpose(
-            1, 2
-        ).contiguous().view(bsz, seqlen, -1)
+        output = output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
 
         if self.w_lora:
             return self.wo(output) + self.lora_wo_l2(self.lora_wo_l1(output))
@@ -223,12 +232,12 @@ class Attention(nn.Module):
 
 class FeedForward(nn.Module):
     def __init__(
-            self,
-            dim: int,
-            hidden_dim: int,
-            multiple_of: int,
-            args: ModelArgs,
-            ffn_dim_multiplier: Optional[float]
+        self,
+        dim: int,
+        hidden_dim: int,
+        multiple_of: int,
+        args: ModelArgs,
+        ffn_dim_multiplier: Optional[float],
     ):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
@@ -236,15 +245,9 @@ class FeedForward(nn.Module):
             hidden_dim = int(ffn_dim_multiplier * hidden_dim)
         hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        self.w1 = Linear(
-            dim, hidden_dim, bias=args.w_bias
-        )
-        self.w2 = Linear(
-            hidden_dim, dim, bias=args.w_bias
-        )
-        self.w3 = Linear(
-            dim, hidden_dim, bias=args.w_bias
-        )
+        self.w1 = Linear(dim, hidden_dim, bias=args.w_bias)
+        self.w2 = Linear(hidden_dim, dim, bias=args.w_bias)
+        self.w3 = Linear(dim, hidden_dim, bias=args.w_bias)
         if args.w_bias:
             nn.init.constant_(self.w1.bias.data, 0)
             nn.init.constant_(self.w2.bias.data, 0)
@@ -265,7 +268,8 @@ class FeedForward(nn.Module):
     def forward(self, x):
         if self.w_lora:
             out = F.silu(self.w1(x) + self.lora_w1_l2(self.lora_w1_l1(x))) * (
-                        self.w3(x) + self.lora_w3_l2(self.lora_w3_l1(x)))
+                self.w3(x) + self.lora_w3_l2(self.lora_w3_l1(x))
+            )
             return self.w2(out) + self.lora_w2_l2(self.lora_w2_l1(out))
         else:
             return self.w2(F.silu(self.w1(x)) * self.w3(x))
@@ -279,16 +283,27 @@ class TransformerBlock(nn.Module):
         self.head_dim = args.dim // args.n_heads
         self.attention = Attention(args)
         self.feed_forward = FeedForward(
-            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of,
-            ffn_dim_multiplier=args.ffn_dim_multiplier, args=args
+            dim=args.dim,
+            hidden_dim=4 * args.dim,
+            multiple_of=args.multiple_of,
+            ffn_dim_multiplier=args.ffn_dim_multiplier,
+            args=args,
         )
         self.layer_id = layer_id
         self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
         self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
 
-    def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor],
-                prompt=None):
-        h = x + self.attention.forward(self.attention_norm(x), start_pos, freqs_cis, mask, prompt)
+    def forward(
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        freqs_cis: torch.Tensor,
+        mask: Optional[torch.Tensor],
+        prompt=None,
+    ):
+        h = x + self.attention.forward(
+            self.attention_norm(x), start_pos, freqs_cis, mask, prompt
+        )
         out = h + self.feed_forward.forward(self.ffn_norm(h))
         return out
 
@@ -299,18 +314,14 @@ class Transformer(nn.Module):
         self.params = params
         self.vocab_size = params.vocab_size
         self.n_layers = params.n_layers
-        self.tok_embeddings = Embedding(
-            params.vocab_size, params.dim
-        )
+        self.tok_embeddings = Embedding(params.vocab_size, params.dim)
 
         self.layers = torch.nn.ModuleList()
         for layer_id in range(params.n_layers):
             self.layers.append(TransformerBlock(layer_id, params))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        self.output = Linear(
-            params.dim, params.vocab_size, bias=False
-        )
+        self.output = Linear(params.dim, params.vocab_size, bias=False)
 
         self.freqs_cis = precompute_freqs_cis(
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
@@ -321,11 +332,13 @@ class Transformer(nn.Module):
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
         self.freqs_cis = self.freqs_cis.to(h.device)
-        freqs_cis = self.freqs_cis[start_pos: start_pos + seqlen]
+        freqs_cis = self.freqs_cis[start_pos : start_pos + seqlen]
 
         mask = None
         if seqlen > 1:
-            mask = torch.full((1, 1, seqlen, seqlen), float("-inf"), device=tokens.device)
+            mask = torch.full(
+                (1, 1, seqlen, seqlen), float("-inf"), device=tokens.device
+            )
             mask = torch.triu(mask, diagonal=start_pos + 1).type_as(h)
 
         for layer in self.layers:
