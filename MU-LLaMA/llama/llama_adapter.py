@@ -260,7 +260,9 @@ class LLaMA_adapter(nn.Module):
 
         if self.knn:
             audio_feats_ori = audio_feats
-            sims, indices = self.index.search(audio_feats.cpu(), int(cache_size))
+            # Convert to float32 before passing to FAISS
+            audio_feats_cpu = audio_feats.cpu().to(torch.float32)
+            sims, indices = self.index.search(audio_feats_cpu, int(cache_size))
             B = sims.shape[0]
             prototypes = [
                 self.index.reconstruct(x)
@@ -271,8 +273,10 @@ class LLaMA_adapter(nn.Module):
             prototypes = np.vstack(prototypes).reshape(
                 B, int(cache_size), -1
             )  # [N, top_k, 1024]
-            sims = torch.tensor(sims, device=device)
-            prototypes = torch.tensor(prototypes, device=device)
+            sims = torch.tensor(sims, device=device, dtype=audio_feats.dtype)
+            prototypes = torch.tensor(
+                prototypes, device=device, dtype=audio_feats.dtype
+            )
 
             sims = (sims * cache_t).softmax(dim=-1)
             audio_feats = sims @ prototypes

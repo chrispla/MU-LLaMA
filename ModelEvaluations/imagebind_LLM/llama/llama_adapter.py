@@ -70,7 +70,9 @@ class LLaMA_adapter(nn.Module):
         )  # max_batch_size only affects inference
         print(f"model args: {model_args}")
         model_args.vocab_size = self.tokenizer.n_words
-        torch.set_default_tensor_type(torch.cuda.HalfTensor)
+        # if torch.cuda.is_available():
+        #     torch.set_default_tensor_type(torch.cuda.HalfTensor)
+        torch.set_default_tensor_type(torch.FloatTensor)
         self.llama = Transformer(model_args)
         torch.set_default_tensor_type(torch.FloatTensor)
 

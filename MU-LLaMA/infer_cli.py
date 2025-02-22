@@ -81,17 +81,17 @@ def main():
 
     # Generate response
     print("Generating response...")
-    with torch.amp.autocast("cpu"):
-        results = model.generate(
-            inputs,
-            prompts,
-            max_gen_len=args.max_gen_len,
-            temperature=args.temperature,
-            top_p=args.top_p,
-            cache_size=args.cache_size,
-            cache_t=args.cache_t,
-            cache_weight=args.cache_weight,
-        )
+    # with torch.amp.autocast("cpu"):
+    results = model.generate(
+        inputs,
+        prompts,
+        max_gen_len=args.max_gen_len,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        cache_size=args.cache_size,
+        cache_t=args.cache_t,
+        cache_weight=args.cache_weight,
+    )
 
     # Print response
     response = results[0].strip()
